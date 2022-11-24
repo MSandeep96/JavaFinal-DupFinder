@@ -6,10 +6,10 @@ import java.nio.file.Paths;
 import java.util.LinkedList;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.stream.Stream;
 
 import DupFinder.interfaces.UICallback;
 import DupFinder.ui.SearchScreen;
-import DupFinder.utils.SafeQueue;
 import DupFinder.workers.WorkerPool;
 
 public class DupFinder implements UICallback, Runnable {
@@ -27,9 +27,9 @@ public class DupFinder implements UICallback, Runnable {
   }
 
   public DupFinder() {
-    fileQueue = new LinkedBlockingQueue<String>();
+    fileQueue = new LinkedBlockingQueue<String>(200);
     searchScreen = new SearchScreen(this);
-    workerPool = new WorkerPool(fileQueue, NUM_THREADS);
+    workerPool = new WorkerPool(fileQueue, NUM_THREADS, searchScreen);
   }
 
   @Override
@@ -45,10 +45,18 @@ public class DupFinder implements UICallback, Runnable {
       e.printStackTrace();
       return;
     }
+    searchScreen.setCurrentDirectory(startPath);
     directoryQueue = new LinkedList<String>();
     directoryQueue.add(startPath);
     new Thread(this).start();
     workerPool.startReading();
+  }
+
+  private static boolean isHiddenPath(String path) {
+    String fileName = path.substring(path.lastIndexOf("/") + 1);
+    if (fileName.startsWith("."))
+      return true;
+    return false;
   }
 
   // Checks for new files in the directory queue and adds them to the file queue
@@ -56,17 +64,27 @@ public class DupFinder implements UICallback, Runnable {
   public void run() {
     while (!directoryQueue.isEmpty()) {
       String path = directoryQueue.poll();
+      if (isHiddenPath(path))
+        continue;
       try {
         Path pathObj = Paths.get(path);
-        Files.list(pathObj).forEach(p -> {
-          if (Files.isDirectory(p)) {
-            System.out.println("Adding directory: " + p.toString());
-            directoryQueue.add(p.toString());
-          } else {
-            System.out.println("Found file: " + p.toString());
-            fileQueue.add(p.toString());
-          }
-        });
+        if (Files.isSymbolicLink(pathObj))
+          continue;
+        try (Stream<Path> stream = Files.list(pathObj)) {
+          stream.forEach((p) -> {
+            if (Files.isReadable(pathObj)) {
+              if (Files.isDirectory(p)) {
+                directoryQueue.add(p.toString());
+              } else {
+                try {
+                  fileQueue.put(p.toString());
+                } catch (InterruptedException e) {
+                  e.printStackTrace();
+                }
+              }
+            }
+          });
+        }
       } catch (Exception e) {
         System.out.println("Error reading directory" + path);
         e.printStackTrace();

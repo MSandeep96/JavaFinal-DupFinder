@@ -1,21 +1,22 @@
 package DupFinder.workers;
 
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import DupFinder.DupFinder;
-import DupFinder.utils.SafeQueue;
+import DupFinder.interfaces.FileDataCallback;
 
 public class WorkerPool implements Runnable {
 
   private BlockingQueue<String> fileQueue;
   private ExecutorService executor;
+  private FileDataCallback fileDataCallback;
 
-  public WorkerPool(BlockingQueue<String> fileQueue, int numThreads) {
+  public WorkerPool(BlockingQueue<String> fileQueue, int numThreads, FileDataCallback callback) {
     this.fileQueue = fileQueue;
     this.executor = Executors.newFixedThreadPool(numThreads);
+    this.fileDataCallback = callback;
   }
 
   public void startReading() {
@@ -30,7 +31,7 @@ public class WorkerPool implements Runnable {
         if (file.equals(DupFinder.SAFE_WORD)) {
           break;
         }
-        executor.execute(new Worker(file));
+        executor.execute(new Worker(file, fileDataCallback));
       } catch (InterruptedException e) {
         e.printStackTrace();
       }

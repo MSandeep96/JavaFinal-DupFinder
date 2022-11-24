@@ -6,14 +6,17 @@ import java.nio.file.Paths;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 
+import DupFinder.interfaces.FileDataCallback;
 import DupFinder.utils.HexUtil;
 
 public class Worker implements Runnable {
 
   String filename;
+  FileDataCallback fileDataCallback;
 
-  Worker(String filename) {
+  Worker(String filename, FileDataCallback fileDataCallback) {
     this.filename = filename;
+    this.fileDataCallback = fileDataCallback;
   }
 
   // calculates the md5 hash of the file in a buffered manner
@@ -30,7 +33,7 @@ public class Worker implements Runnable {
       }
       byte[] digest = md.digest();
       String hash = HexUtil.getHex(digest);
-      System.out.println(hash);
+      fileDataCallback.onFileData(filename, hash);
     } catch (Exception e) {
       e.printStackTrace();
     }
