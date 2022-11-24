@@ -4,11 +4,13 @@ import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.border.Border;
+import javax.swing.plaf.DimensionUIResource;
 
 import java.awt.BorderLayout;
 
@@ -17,6 +19,8 @@ import DupFinder.interfaces.UICallback;
 public class SearchScreen extends JFrame {
 
   UICallback callback;
+  JPanel contentPanel;
+  JTextField pathField;
 
   public SearchScreen(UICallback callback) {
     super("Search");
@@ -28,29 +32,44 @@ public class SearchScreen extends JFrame {
   }
 
   private void createUI() {
+    contentPanel = new JPanel();
+    contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
+    Border padding = BorderFactory.createEmptyBorder(10, 10, 10, 10);
+    contentPanel.setBorder(padding);
+    add(contentPanel, BorderLayout.CENTER);
     createInputPanel();
-    createStatsPanel();
   }
 
   private void createInputPanel() {
-    JPanel inputContainer = new JPanel();
-    inputContainer.setLayout(new BoxLayout(inputContainer, BoxLayout.Y_AXIS));
-    Box box = Box.createHorizontalBox();
-    box.add(new JLabel("Start Path:"));
-    box.add(Box.createHorizontalGlue());
-    inputContainer.add(box);
-    inputContainer.add(Box.createVerticalStrut(10));
-    JPanel inputPanel = new JPanel();
-    inputPanel.setLayout(new BoxLayout(inputPanel, BoxLayout.X_AXIS));
-    JTextField startPath = new JTextField();
-    inputPanel.add(startPath);
+    Box inputHelperBox = Box.createHorizontalBox();
+    inputHelperBox.add(new JLabel("Start Path:"));
+    inputHelperBox.add(Box.createHorizontalGlue());
+    JButton browseButton = new JButton("Browse");
+    browseButton.addActionListener(e -> pickFolder());
+    inputHelperBox.add(browseButton);
+    contentPanel.add(inputHelperBox);
+    contentPanel.add(Box.createVerticalStrut(10));
+    Box inputPanel = Box.createHorizontalBox();
+    inputPanel.setMaximumSize(new DimensionUIResource(Integer.MAX_VALUE, 25));
+    pathField = new JTextField();
+    inputPanel.add(pathField);
     JButton startButton = new JButton("Start");
     inputPanel.add(startButton);
-    startButton.addActionListener(e -> callback.startSearch(startPath.getText()));
-    inputContainer.add(inputPanel);
-    Border padding = BorderFactory.createEmptyBorder(10, 10, 10, 10);
-    inputContainer.setBorder(padding);
-    add(inputContainer, BorderLayout.NORTH);
+    startButton.addActionListener(e -> callback.startSearch(pathField.getText()));
+    contentPanel.add(inputPanel);
+  }
+
+  private void pickFolder() {
+    JFileChooser chooser = new JFileChooser();
+    chooser.setCurrentDirectory(new java.io.File("."));
+    chooser.setDialogTitle("Select start folder");
+    chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+    chooser.setAcceptAllFileFilterUsed(false);
+    if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+      pathField.setText(chooser.getSelectedFile().getAbsolutePath());
+    } else {
+      System.out.println("No Selection ");
+    }
   }
 
 }
