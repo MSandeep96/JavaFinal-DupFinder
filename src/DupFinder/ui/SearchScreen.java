@@ -15,6 +15,7 @@ import javax.swing.JSeparator;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.border.Border;
 import javax.swing.plaf.DimensionUIResource;
 
@@ -61,22 +62,25 @@ public class SearchScreen extends JFrame implements FileDataCallback {
 
   public void setCurrentDirectory(String path) {
     startTime = Instant.now();
+    resultsList.clear();
+    duplicateList.clear();
     numFilesProcessed = 0;
     numDuplicatedFiles = 0;
     currentPath = path;
     fileMap.clear();
-    updateStats();
+    updateStats(null);
   }
 
   @Override
   public synchronized void onFileData(String filename, String data) {
+    Md5File dupFile = null;
     if (fileMap.containsKey(data)) {
       LinkedList<String> list = fileMap.get(data);
       list.add(filename);
       if (list.size() == 2) {
         // make path relative to current directory
         String finalPath = filename.replace(currentPath, "");
-        resultsList.addElement(new Md5File(finalPath, data));
+        dupFile = new Md5File(finalPath, data);
       }
       numDuplicatedFiles++;
     } else {
@@ -85,7 +89,31 @@ public class SearchScreen extends JFrame implements FileDataCallback {
       fileMap.put(data, list);
     }
     numFilesProcessed++;
-    updateStats();
+    SwingUtilities.invokeLater(new UpdateUi(dupFile));
+  }
+
+  class UpdateUi extends Thread {
+    Md5File dupFile;
+
+    public UpdateUi(Md5File dupFile) {
+      this.dupFile = dupFile;
+    }
+
+    @Override
+    public void run() {
+      updateStats(dupFile);
+    }
+  }
+
+  private void updateStats(Md5File dupFile) {
+    if (dupFile != null) {
+      resultsList.addElement(dupFile);
+    }
+    filesProcessed.setText(Integer.toString(numFilesProcessed));
+    duplicatedFiles.setText(Integer.toString(numDuplicatedFiles));
+    Instant end = Instant.now();
+    Duration timeTaken = Duration.between(startTime, end);
+    timeElapsed.setText(Long.toString(timeTaken.toMillis()) + "ms");
   }
 
   private void createUI() {
@@ -167,14 +195,6 @@ public class SearchScreen extends JFrame implements FileDataCallback {
     resultGrid.add(dupScrollPane);
     resultsPanel.add(resultGrid, BorderLayout.CENTER);
     contentPanel.add(resultsPanel);
-  }
-
-  private synchronized void updateStats() {
-    filesProcessed.setText(Integer.toString(numFilesProcessed));
-    duplicatedFiles.setText(Integer.toString(numDuplicatedFiles));
-    Instant end = Instant.now();
-    Duration timeTaken = Duration.between(startTime, end);
-    timeElapsed.setText(Long.toString(timeTaken.toMillis()) + "ms");
   }
 
   private void pickFolder() {

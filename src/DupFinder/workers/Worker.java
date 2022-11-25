@@ -2,10 +2,14 @@ package DupFinder.workers;
 
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 
+import DupFinder.db.DbExecutor;
+import DupFinder.db.FileMeta;
 import DupFinder.interfaces.FileDataCallback;
 import DupFinder.utils.HexUtil;
 
@@ -23,6 +27,16 @@ public class Worker implements Runnable {
   @Override
   public void run() {
     try {
+      DbExecutor dbExecutor = DbExecutor.getInstance();
+      FileMeta meta = dbExecutor.readFileMeta(filename);
+      Path filePath = Paths.get(filename);
+      BasicFileAttributes attrbs = Files.readAttributes(filePath, BasicFileAttributes.class);
+      if (meta != null) {
+        if (meta.lastModified == attrbs.lastModifiedTime().toMillis()) {
+          fileDataCallback.onFileData(filename, meta.md5);
+          return;
+        }
+      }
       MessageDigest md = MessageDigest.getInstance("MD5");
       try (InputStream is = Files.newInputStream(Paths.get(filename));
           DigestInputStream dis = new DigestInputStream(is, md)) {
@@ -34,6 +48,8 @@ public class Worker implements Runnable {
       byte[] digest = md.digest();
       String hash = HexUtil.getHex(digest);
       fileDataCallback.onFileData(filename, hash);
+      meta = new FileMeta(filename, hash, attrbs.lastModifiedTime().toMillis());
+      dbExecutor.insertFileMeta(meta);
     } catch (Exception e) {
       e.printStackTrace();
     }
