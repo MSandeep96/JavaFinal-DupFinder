@@ -8,6 +8,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Stream;
 
+import DupFinder.db.DbExecutor;
 import DupFinder.interfaces.UICallback;
 import DupFinder.ui.SearchScreen;
 import DupFinder.workers.WorkerPool;
@@ -22,6 +23,8 @@ public class DupFinder implements UICallback, Runnable {
   public static final String SAFE_WORD = "/quit\"";
   private static final int NUM_THREADS = 15;
 
+  boolean isWindows = false;
+
   public static void main(String[] args) {
     new DupFinder();
   }
@@ -30,6 +33,9 @@ public class DupFinder implements UICallback, Runnable {
     fileQueue = new LinkedBlockingQueue<String>(200);
     searchScreen = new SearchScreen(this);
     workerPool = new WorkerPool(fileQueue, NUM_THREADS, searchScreen);
+    isWindows = System.getProperty("os.name").toLowerCase().contains("windows");
+    // init connection
+    DbExecutor.getInstance();
   }
 
   @Override
@@ -52,8 +58,13 @@ public class DupFinder implements UICallback, Runnable {
     workerPool.startReading();
   }
 
-  private static boolean isHiddenPath(String path) {
-    String fileName = path.substring(path.lastIndexOf("/") + 1);
+  private boolean isHiddenPath(String path) {
+    String fileName = null;
+    if (isWindows) {
+      fileName = path.substring(path.lastIndexOf("\\") + 1);
+    } else {
+      fileName = path.substring(path.lastIndexOf("/") + 1);
+    }
     if (fileName.startsWith("."))
       return true;
     return false;

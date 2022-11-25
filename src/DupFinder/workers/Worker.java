@@ -24,6 +24,7 @@ public class Worker implements Runnable {
   }
 
   // calculates the md5 hash of the file in a buffered manner
+
   @Override
   public void run() {
     try {
@@ -40,7 +41,7 @@ public class Worker implements Runnable {
       MessageDigest md = MessageDigest.getInstance("MD5");
       try (InputStream is = Files.newInputStream(Paths.get(filename));
           DigestInputStream dis = new DigestInputStream(is, md)) {
-        byte[] buffer = new byte[1024 * 100];
+        byte[] buffer = new byte[1024 * 1000 * 10]; // 10 MB per thread = 150 MB max
         while (dis.read(buffer) != -1) {
           // do nothing
         }
